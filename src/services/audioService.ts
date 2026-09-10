@@ -1,95 +1,72 @@
 import * as idb from 'idb-keyval';
 
 export class AudioService {
-  private recognition: any = null;
-  private isIntentionallyStopped: boolean = false;
-  
+  private mediaRecorder: MediaRecorder | null = null;
+  private audioChunks: Blob[] = [];
   private wakeLock: any = null;
-  private finalTranscript: string = '';
-  
-  public onTranscriptUpdate: (text: string, isFinal: boolean) => void = () => {};
+  private stream: MediaStream | null = null;
 
   constructor() {
-    // Initialize Web Speech API
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      this.recognition = new SpeechRecognition();
-      this.recognition.continuous = true;
-      this.recognition.interimResults = true;
-      
-      this.recognition.onresult = (event: any) => {
-        let interimTranscript = '';
-        
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            this.finalTranscript += event.results[i][0].transcript + ' ';
-          } else {
-            interimTranscript += event.results[i][0].transcript;
-          }
-        }
-        
-        const fullDisplay = (this.finalTranscript + ' ' + interimTranscript).replace(/\s+/g, ' ').trim();
-        this.onTranscriptUpdate(fullDisplay, true);
-      };
-
-      this.recognition.onerror = (event: any) => {
-        console.error('Speech recognition error', event.error);
-        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          this.isIntentionallyStopped = true;
-        }
-      };
-
-      this.recognition.onend = () => {
-        // If the browser stopped it automatically (due to pause), restart it!
-        if (!this.isIntentionallyStopped && this.recognition) {
-          try {
-            this.recognition.start();
-          } catch (e) {
-            console.error('Failed to restart recognition', e);
-          }
-        }
-      };
-    } else {
-      console.warn('Web Speech API not supported in this browser.');
-    }
+    // Initialization deferred to startRecording to request permissions at runtime
   }
 
-  async startRecording() {
-    this.isIntentionallyStopped = false;
-    this.finalTranscript = '';
+  async startRecording(): Promise<void> {
     try {
       if ('wakeLock' in navigator) {
         try {
           this.wakeLock = await (navigator as any).wakeLock.request('screen');
         } catch (err) {
-          console.error(`Wake Lock Error: ${err}`);
+          console.log('Wake lock failed', err);
         }
       }
-      
-      if (this.recognition) {
-        this.recognition.start();
-      }
+
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.mediaRecorder = new MediaRecorder(this.stream);
+      this.audioChunks = [];
+
+      this.mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          this.audioChunks.push(event.data);
+        }
+      };
+
+      this.mediaRecorder.start();
     } catch (err) {
-      console.error('Error starting audio recording:', err);
+      console.error('Failed to start MediaRecorder:', err);
+      throw err;
     }
   }
 
-  stopRecording(): Promise<Blob | null> {
-    this.isIntentionallyStopped = true;
-    return new Promise((resolve) => {
-      if (this.wakeLock !== null) {
-        this.wakeLock.release().catch(console.error).finally(() => {
-          this.wakeLock = null;
-        });
+  stopRecording(): Promise<{ base64: string, mimeType: string }> {
+    return new Promise((resolve, reject) => {
+      if (!this.mediaRecorder || this.mediaRecorder.state === 'inactive') {
+        reject(new Error('MediaRecorder is not active'));
+        return;
       }
-      if (this.recognition) {
-        this.recognition.stop();
+
+      this.mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(this.audioChunks, { type: this.mediaRecorder?.mimeType || 'audio/webm' });
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          const base64data = (reader.result as string).split(',')[1];
+          resolve({ base64: base64data, mimeType: audioBlob.type });
+        };
+
+        // Cleanup stream tracks
+        if (this.stream) {
+          this.stream.getTracks().forEach(track => track.stop());
+        }
+      };
+
+      this.mediaRecorder.stop();
+
+      if (this.wakeLock) {
+        this.wakeLock.release().catch(console.error);
+        this.wakeLock = null;
       }
-      resolve(null);
     });
   }
-  
-
 
   async clearBackup() {
       await idb.del('holojournal-audio-backup');

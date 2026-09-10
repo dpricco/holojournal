@@ -49,6 +49,10 @@ interface UnifiedGenOptions {
   jsonMode?: boolean;
   responseModalities?: string[];
   speechConfig?: any;
+  audio?: {
+    base64: string;
+    mimeType: string;
+  };
 }
 
 interface UnifiedGenResult {
@@ -66,7 +70,8 @@ export const callGemini = async (options: UnifiedGenOptions): Promise<UnifiedGen
   let lastError: any = null;
 
   // 1. Try modern Interactions API first for Gemini 3.x models
-  if (ai.interactions && typeof ai.interactions.create === 'function') {
+  // Skip if we are sending multimodal audio, since the old generateContent handles inlineData better right now.
+  if (!options.audio && ai.interactions && typeof ai.interactions.create === 'function') {
     for (const model of INTERACTION_MODELS) {
       try {
         console.log(`Holojournal: Invoking Interactions API [${model}]...`);
@@ -129,9 +134,22 @@ export const callGemini = async (options: UnifiedGenOptions): Promise<UnifiedGen
         config.speechConfig = options.speechConfig;
       }
 
+      let contents: any = options.prompt;
+      if (options.audio) {
+        contents = [
+          {
+            inlineData: {
+              data: options.audio.base64,
+              mimeType: options.audio.mimeType
+            }
+          },
+          { text: options.prompt }
+        ];
+      }
+
       const resp = await ai.models.generateContent({
         model,
-        contents: options.prompt,
+        contents,
         config
       });
 
@@ -174,26 +192,31 @@ export const callGemini = async (options: UnifiedGenOptions): Promise<UnifiedGen
 };
 
 /**
- * Strips speech disfluencies, filler words (uh, um, like, stutters) from voice dictation.
+ * Strips speech disfluencies, filler words (uh, um, like, stutters) from voice dictation,
+ * or transcribes raw audio directly if audioData is provided.
  */
-export const cleanSpeechTranscript = async (rawTranscript: string): Promise<string> => {
-  if (!rawTranscript || rawTranscript.trim().length === 0) return '';
-  if (rawTranscript.trim().split(/\s+/).length < 4) return rawTranscript.trim();
+export const cleanSpeechTranscript = async (
+  rawTranscript: string,
+  audioData?: { base64: string, mimeType: string }
+): Promise<string> => {
+  if (!audioData && (!rawTranscript || rawTranscript.trim().length === 0)) return '';
+  if (!audioData && rawTranscript.trim().split(/\s+/).length < 4) return rawTranscript.trim();
 
-  const prompt = `You are an audio transcription polisher and speech cleanup editor.
+  let prompt = `You are an audio transcription polisher and speech cleanup editor.
 Clean the following voice transcription by:
 1. Stripping out speech disfluencies, filler words (e.g. "um", "uh", "ah", "like", "you know", "er", "so yeah").
 2. Removing stuttered or repeated words and false starts.
 3. Repairing broken sentence fragments into clean, natural, coherent spoken prose.
 4. Strictly maintaining 100% of the speaker's original meaning, emotional nuance, personal tone, and vocabulary. Do NOT summarize or sanitize.
 
-Raw Transcription:
-"""${rawTranscript}"""
+Return ONLY the cleaned transcript text without quotes or preamble.`;
 
-Return ONLY the cleaned transcript text without quotes or preamble:`;
+  if (rawTranscript) {
+    prompt += `\n\nRaw Transcription:\n"""${rawTranscript}"""`;
+  }
 
   try {
-    const result = await callGemini({ prompt });
+    const result = await callGemini({ prompt, audio: audioData });
     return (result.text || rawTranscript).trim();
   } catch (err) {
     console.error('Speech cleanup fallback to raw:', err);

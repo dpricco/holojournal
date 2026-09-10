@@ -96,10 +96,7 @@ export const ActiveSession: React.FC = () => {
       setStatusMessage('');
     });
 
-    // 3. Web Speech API live stream
-    audioService.current!.onTranscriptUpdate = (text) => {
-      setCurrentSpeech(text);
-    };
+    // 3. Web Speech API live stream removed. We now use silent background MediaRecorder.
 
     // 4. Crash-Proof Auto-Save every 3 seconds to localStorage
     const interval = setInterval(() => {
@@ -159,47 +156,33 @@ export const ActiveSession: React.FC = () => {
       setIsRecording(false);
       setStatusMessage('FINALIZING AUDIO BUFFER...');
       
-      // Wait 2 seconds to allow the final STT results to flush into state
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      await audioService.current!.stopRecording();
-
-      // Fetch from stateRef to ensure we get late-arriving transcripts
-      const rawNote = stateRef.current.currentSpeech.trim();
-      if (!rawNote) {
-        setStatusMessage('');
-        return;
-      }
-
-      setIsPolishing(true);
-      setStatusMessage('GEMINI STRIPPING FILLER WORDS & POLISHING AUDIO...');
       try {
-        const cleaned = await cleanSpeechTranscript(rawNote);
-        const newMsg: JournalMessage = {
-          id: Date.now().toString(),
-          role: 'user',
-          text: cleaned,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          isPolished: true
-        };
-        setMessages(prev => [...prev, newMsg]);
-        setCurrentSpeech('');
+        const audioData = await audioService.current!.stopRecording();
+
+        setIsPolishing(true);
+        setStatusMessage('GEMINI TRANSCRIBING & POLISHING AUDIO...');
+        
+        const cleaned = await cleanSpeechTranscript('', audioData);
+        if (cleaned) {
+          const newMsg: JournalMessage = {
+            id: Date.now().toString(),
+            role: 'user',
+            text: cleaned,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            isPolished: true
+          };
+          setMessages(prev => [...prev, newMsg]);
+        }
       } catch (err) {
-        console.error('Failed to clean audio note:', err);
-        const fallbackMsg: JournalMessage = {
-          id: Date.now().toString(),
-          role: 'user',
-          text: rawNote,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
-        setMessages(prev => [...prev, fallbackMsg]);
-        setCurrentSpeech('');
+        console.error('Failed to process audio:', err);
+        alert('Failed to process audio recording.');
       } finally {
         setIsPolishing(false);
         setStatusMessage('');
+        setCurrentSpeech('');
       }
     } else {
-      setCurrentSpeech('');
+      setCurrentSpeech('• • •  RECORDING IN PROGRESS (SILENT BACKGROUND MODE)  • • •');
       await audioService.current!.startRecording();
       setIsRecording(true);
     }

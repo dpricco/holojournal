@@ -60,9 +60,7 @@ export const CouncilSession: React.FC = () => {
     // 2. Load system docs context
     getLatestSystemDocsContext().then(context => setSystemContext(context));
 
-    audioService.current!.onTranscriptUpdate = (text) => {
-      setInputText(text);
-    };
+    // 3. Web Speech API live stream removed. We now use silent background MediaRecorder.
 
     // 3. Setup auto-save interval
     const backupInterval = setInterval(() => {
@@ -115,11 +113,21 @@ export const CouncilSession: React.FC = () => {
     unlockAudioContext();
     if (isRecording) {
       setIsRecording(false);
-      setStatusMessage('FINALIZING AUDIO BUFFER...');
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      await audioService.current!.stopRecording();
-      setStatusMessage('');
+      setStatusMessage('TRANSCRIBING AUDIO WITH GEMINI...');
+      try {
+        const audioData = await audioService.current!.stopRecording();
+        const transcribed = await cleanSpeechTranscript('', audioData);
+        if (transcribed) {
+          setInputText(prev => (prev ? prev + ' ' + transcribed : transcribed));
+        }
+      } catch (err) {
+        console.error('Failed to process audio:', err);
+        alert('Failed to transcribe audio recording.');
+      } finally {
+        setStatusMessage('');
+      }
     } else {
+      setInputText('• • •  RECORDING IN PROGRESS (SILENT BACKGROUND MODE)  • • •');
       await audioService.current!.startRecording();
       setIsRecording(true);
     }
