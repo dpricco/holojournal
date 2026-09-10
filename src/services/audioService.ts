@@ -1,8 +1,6 @@
 import * as idb from 'idb-keyval';
 
 export class AudioService {
-  private mediaRecorder: MediaRecorder | null = null;
-  private audioChunks: Blob[] = [];
   private recognition: any = null;
   
   public onTranscriptUpdate: (text: string, isFinal: boolean) => void = () => {};
@@ -44,7 +42,6 @@ export class AudioService {
   }
 
   async startRecording() {
-    this.audioChunks = [];
     try {
       if (this.recognition) {
         this.recognition.start();
@@ -63,10 +60,7 @@ export class AudioService {
     });
   }
   
-  async backupToIDB() {
-      const currentBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-      await idb.set('holojournal-audio-backup', currentBlob);
-  }
+
 
   async clearBackup() {
       await idb.del('holojournal-audio-backup');
