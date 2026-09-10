@@ -5,6 +5,8 @@ export class AudioService {
   private isIntentionallyStopped: boolean = false;
   
   private wakeLock: any = null;
+  private accumulatedFinal: string = '';
+  private currentSessionFinal: string = '';
   
   public onTranscriptUpdate: (text: string, isFinal: boolean) => void = () => {};
 
@@ -17,23 +19,24 @@ export class AudioService {
       this.recognition.interimResults = true;
       
       this.recognition.onresult = (event: any) => {
-        let interimTranscript = '';
-        let finalTranscript = '';
+        let finalStr = '';
+        let interimStr = '';
         
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
+        // Always loop from 0 to bypass Android's duplicate continuous results bug
+        for (let i = 0; i < event.results.length; ++i) {
           if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript + ' ';
+            finalStr += event.results[i][0].transcript + ' ';
           } else {
-            interimTranscript += event.results[i][0].transcript;
+            interimStr += event.results[i][0].transcript;
           }
         }
         
-        if (finalTranscript) {
-           this.onTranscriptUpdate(finalTranscript, true);
-        }
-        if (interimTranscript) {
-           this.onTranscriptUpdate(interimTranscript, false);
-        }
+        this.currentSessionFinal = finalStr;
+        
+        const fullDisplay = (this.accumulatedFinal + ' ' + finalStr + ' ' + interimStr).replace(/\s+/g, ' ').trim();
+        
+        // Always emit the full cumulative string. The UI should overwrite its state, not append.
+        this.onTranscriptUpdate(fullDisplay, true);
       };
 
       this.recognition.onerror = (event: any) => {
@@ -44,6 +47,12 @@ export class AudioService {
       };
 
       this.recognition.onend = () => {
+        // Commit this session's final string to the accumulator across restarts
+        if (this.currentSessionFinal) {
+          this.accumulatedFinal += ' ' + this.currentSessionFinal;
+          this.currentSessionFinal = '';
+        }
+
         // If the browser stopped it automatically (due to pause), restart it!
         if (!this.isIntentionallyStopped && this.recognition) {
           try {
@@ -60,6 +69,8 @@ export class AudioService {
 
   async startRecording() {
     this.isIntentionallyStopped = false;
+    this.accumulatedFinal = '';
+    this.currentSessionFinal = '';
     try {
       if ('wakeLock' in navigator) {
         try {

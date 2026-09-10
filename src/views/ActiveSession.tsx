@@ -93,10 +93,8 @@ export const ActiveSession: React.FC = () => {
     });
 
     // 3. Web Speech API live stream
-    audioService.current.onTranscriptUpdate = (text, isFinal) => {
-      if (isFinal) {
-        setCurrentSpeech(prev => prev ? prev + ' ' + text : text);
-      }
+    audioService.current.onTranscriptUpdate = (text) => {
+      setCurrentSpeech(text);
     };
 
     // 4. Crash-Proof Auto-Save every 3 seconds to localStorage

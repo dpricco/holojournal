@@ -57,8 +57,8 @@ export const CouncilSession: React.FC = () => {
     // 2. Load system docs context
     getLatestSystemDocsContext().then(context => setSystemContext(context));
 
-    audioService.current.onTranscriptUpdate = (text, isFinal) => {
-      setInputText(prev => isFinal ? (prev ? prev + ' ' + text : text) : prev);
+    audioService.current.onTranscriptUpdate = (text) => {
+      setInputText(text);
     };
 
     // 3. Setup auto-save interval
