@@ -22,42 +22,43 @@ export const Layout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex bg-black text-lcars-orange p-4">
+    <div className="min-h-screen flex bg-black text-lcars-orange p-2 md:p-4">
       
       {/* Left Column (LCARS Sidebar) */}
-      <div className="w-32 flex flex-col mr-4">
-        <div className="bg-lcars-peach h-24 lcars-elbow-top-left mb-2 flex items-end justify-end p-2">
-          <span className="text-black font-bold text-2xl">47</span>
+      <div className="w-12 md:w-24 flex flex-col mr-2 md:mr-4 shrink-0">
+        <div className="bg-lcars-peach h-16 md:h-24 lcars-elbow-top-left mb-2 flex items-end justify-end p-2">
         </div>
         
-        <Link to="/" className="bg-lcars-blue h-16 w-full mb-2 flex items-center justify-end p-2 hover:bg-lcars-yellow transition-colors">
-          <span className="text-black font-bold text-xl text-right">HOME</span>
-        </Link>
-
-        {isAuthenticated ? (
-          <button onClick={handleLogout} className="bg-lcars-red h-12 w-full mb-2 flex items-center justify-end p-2 hover:bg-lcars-yellow transition-colors text-right">
-            <span className="text-black font-bold">LOGOUT</span>
-          </button>
-        ) : (
-          <Link to="/settings" className="bg-lcars-red h-12 w-full mb-2 flex items-center justify-end p-2 hover:bg-lcars-yellow transition-colors text-right">
-            <span className="text-black font-bold">CONFIG</span>
-          </Link>
-        )}
-
         <div className="bg-lcars-orange flex-1 mb-2 lcars-elbow-bottom-left flex items-end justify-end p-2">
-          <span className="text-black font-bold">74205.3</span>
         </div>
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Top Bar */}
-        <div className="h-24 bg-lcars-peach mb-4 flex items-center px-6 rounded-r-full">
-          <h1 className="text-black text-4xl font-bold tracking-widest">GEMINI HOLOJOURNAL</h1>
+        <div className="h-16 md:h-24 bg-lcars-peach mb-2 flex items-center px-4 md:px-6 rounded-r-full shrink-0">
+          <h1 className="text-black text-xl md:text-4xl font-bold tracking-widest truncate">GEMINI HOLOJOURNAL</h1>
+        </div>
+
+        {/* Navigation Bar */}
+        <div className="flex space-x-2 mb-4 shrink-0">
+          <Link to="/" className="bg-lcars-blue h-10 px-4 rounded-r-full flex items-center justify-center hover:bg-lcars-yellow transition-colors flex-1">
+            <span className="text-black font-bold text-sm md:text-base">HOME</span>
+          </Link>
+
+          {isAuthenticated ? (
+            <button onClick={handleLogout} className="bg-lcars-red h-10 px-4 rounded-l-full flex items-center justify-center hover:bg-lcars-yellow transition-colors flex-1">
+              <span className="text-black font-bold text-sm md:text-base">LOGOUT</span>
+            </button>
+          ) : (
+            <Link to="/settings" className="bg-lcars-red h-10 px-4 rounded-l-full flex items-center justify-center hover:bg-lcars-yellow transition-colors flex-1">
+              <span className="text-black font-bold text-sm md:text-base">CONFIG</span>
+            </Link>
+          )}
         </div>
 
         {/* Content Viewport */}
-        <main className="flex-1 overflow-y-auto p-2">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-1 md:p-2">
           <Outlet />
         </main>
       </div>

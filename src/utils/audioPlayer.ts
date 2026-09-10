@@ -39,6 +39,33 @@ function writeString(view: DataView, offset: number, string: string) {
   }
 }
 
+// A silent, 0.1-second WAV audio base64 snippet used to permanently unlock
+// mobile browser audio context during a user's initial click interaction.
+const SILENT_WAV_BASE64 = 'UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+
+let isAudioUnlocked = false;
+
+export const unlockAudioContext = () => {
+  if (isAudioUnlocked) return;
+  try {
+    const audio = new Audio(`data:audio/wav;base64,${SILENT_WAV_BASE64}`);
+    audio.play().then(() => {
+      isAudioUnlocked = true;
+    }).catch((e) => {
+      console.warn('Silent audio unlock failed:', e);
+    });
+    
+    // Also unlock Web Speech TTS
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance('');
+      utterance.volume = 0;
+      window.speechSynthesis.speak(utterance);
+    }
+  } catch (err) {
+    console.error('Error unlocking audio context:', err);
+  }
+};
+
 export const playBase64Audio = async (base64Audio: string, mimeType: string = 'audio/pcm;rate=24000'): Promise<void> => {
   try {
     const binaryString = atob(base64Audio);

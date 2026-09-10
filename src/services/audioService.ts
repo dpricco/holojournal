@@ -4,6 +4,8 @@ export class AudioService {
   private recognition: any = null;
   private isIntentionallyStopped: boolean = false;
   
+  private wakeLock: any = null;
+  
   public onTranscriptUpdate: (text: string, isFinal: boolean) => void = () => {};
 
   constructor() {
@@ -59,6 +61,14 @@ export class AudioService {
   async startRecording() {
     this.isIntentionallyStopped = false;
     try {
+      if ('wakeLock' in navigator) {
+        try {
+          this.wakeLock = await (navigator as any).wakeLock.request('screen');
+        } catch (err) {
+          console.error(`Wake Lock Error: ${err}`);
+        }
+      }
+      
       if (this.recognition) {
         this.recognition.start();
       }
@@ -70,6 +80,11 @@ export class AudioService {
   stopRecording(): Promise<Blob | null> {
     this.isIntentionallyStopped = true;
     return new Promise((resolve) => {
+      if (this.wakeLock !== null) {
+        this.wakeLock.release().catch(console.error).finally(() => {
+          this.wakeLock = null;
+        });
+      }
       if (this.recognition) {
         this.recognition.stop();
       }

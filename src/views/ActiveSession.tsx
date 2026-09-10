@@ -13,13 +13,12 @@ import {
   createAndPopulateDoc, 
   appendToBiography 
 } from '../services/driveDocsService';
-import { 
-  cleanSpeechTranscript, 
+import { cleanSpeechTranscript, 
   generateJournalPrompt, 
   synthesizeJournalChat,
   speakText 
 } from '../services/geminiService';
-import { playBase64Audio, playBrowserTTS } from '../utils/audioPlayer';
+import { playBase64Audio, playBrowserTTS, unlockAudioContext } from '../utils/audioPlayer';
 import { 
   Mic, 
   MicOff, 
@@ -150,6 +149,7 @@ export const ActiveSession: React.FC = () => {
    * inserting into the conversation transcript.
    */
   const toggleRecording = async () => {
+    unlockAudioContext();
     if (isRecording) {
       setIsRecording(false);
       setStatusMessage('FINALIZING AUDIO BUFFER...');
@@ -218,6 +218,7 @@ export const ActiveSession: React.FC = () => {
   };
 
   const handlePlayAudio = async (msg: JournalMessage) => {
+    unlockAudioContext();
     if (isPlayingAudio) return;
     
     // If we already have the audio buffer, just play it
@@ -258,6 +259,7 @@ export const ActiveSession: React.FC = () => {
    * to provide a poignant, introspective inquiry or prompt.
    */
   const handleRequestPrompt = async () => {
+    unlockAudioContext();
     if (isRecording) {
       await toggleRecording();
     }
@@ -474,7 +476,7 @@ export const ActiveSession: React.FC = () => {
           </button>
           <div>
             <h2 className="text-lcars-orange text-2xl md:text-3xl font-bold tracking-wider">
-              DAILY JOURNALING CHAT
+              JOURNAL ENTRY
             </h2>
             <div className="flex flex-wrap gap-2 mt-1">
               {sessionContext?.workflowDoc ? (

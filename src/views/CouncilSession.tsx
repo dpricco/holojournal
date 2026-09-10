@@ -5,7 +5,7 @@ import { AudioWaveform } from '../components/AudioWaveform';
 import { AudioService } from '../services/audioService';
 import { getLatestSystemDocsContext, createAndPopulateDoc } from '../services/driveDocsService';
 import { getCouncilResponse, synthesizeCouncilChat } from '../services/geminiService';
-import { playBase64Audio, playBrowserTTS } from '../utils/audioPlayer';
+import { playBase64Audio, playBrowserTTS, unlockAudioContext } from '../utils/audioPlayer';
 import { Volume2, VolumeX, Send, RefreshCw, Save, Trash2, ArrowLeft } from 'lucide-react';
 
 interface CouncilMessage {
@@ -106,6 +106,7 @@ export const CouncilSession: React.FC = () => {
   };
 
   const toggleRecording = async () => {
+    unlockAudioContext();
     if (isRecording) {
       setIsRecording(false);
       setStatusMessage('FINALIZING AUDIO BUFFER...');
@@ -119,6 +120,7 @@ export const CouncilSession: React.FC = () => {
   };
 
   const handleSendMessage = async (personaToAsk: PersonaInfo = selectedPersona) => {
+    unlockAudioContext();
     if (isConsulting || !systemContext) return;
 
     if (isRecording) {
@@ -198,6 +200,7 @@ export const CouncilSession: React.FC = () => {
   };
 
   const handlePlayAudio = async (msg: CouncilMessage) => {
+    unlockAudioContext();
     if (isPlayingAudio) return;
     
     if (msg.audioBase64) {
