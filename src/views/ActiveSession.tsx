@@ -72,7 +72,7 @@ export const ActiveSession: React.FC = () => {
   }
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const stateRef = useRef({ messages, currentSpeech, manualInput });
+  const stateRef = useRef({ messages, currentSpeech, manualInput, isSynthesizing: false });
   const navigate = useNavigate();
 
   // Keep ref updated for auto-save interval
