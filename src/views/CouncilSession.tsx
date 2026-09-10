@@ -4,7 +4,7 @@ import { CouncilAvatar, COUNCIL_PERSONAS, type PersonaInfo } from '../components
 import { AudioWaveform } from '../components/AudioWaveform';
 import { AudioService } from '../services/audioService';
 import { getLatestSystemDocsContext, createAndPopulateDoc } from '../services/driveDocsService';
-import { getCouncilResponse, synthesizeCouncilChat } from '../services/geminiService';
+import { getCouncilResponse, synthesizeCouncilChat, cleanSpeechTranscript } from '../services/geminiService';
 import { playBase64Audio, playBrowserTTS, unlockAudioContext } from '../utils/audioPlayer';
 import { Volume2, VolumeX, Send, RefreshCw, Save, Trash2, ArrowLeft } from 'lucide-react';
 
