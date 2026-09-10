@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAppStore } from '../store/useAppStore';
 import { CouncilAvatar, COUNCIL_PERSONAS, type PersonaInfo } from '../components/CouncilAvatars';
 import { AudioWaveform } from '../components/AudioWaveform';
 import { AudioService } from '../services/audioService';
@@ -10,7 +11,7 @@ import { Volume2, VolumeX, Send, RefreshCw, Save, Trash2, ArrowLeft } from 'luci
 
 interface CouncilMessage {
   id: string;
-  sender: string; // 'USER' or Persona name
+  sender: string; // userName or Persona name
   text: string;
   audioBase64?: string | null;
   mimeType?: string;
@@ -20,6 +21,7 @@ interface CouncilMessage {
 const COUNCIL_BACKUP_KEY = 'holojournal_council_backup';
 
 export const CouncilSession: React.FC = () => {
+  const { userName } = useAppStore();
   const [selectedPersona, setSelectedPersona] = useState<PersonaInfo>(COUNCIL_PERSONAS[0]); // default Picard
   const [messages, setMessages] = useState<CouncilMessage[]>([]);
   const [inputText, setInputText] = useState('');
@@ -152,7 +154,7 @@ export const CouncilSession: React.FC = () => {
 
     const userMsg: CouncilMessage = {
       id: Date.now().toString(),
-      sender: 'USER',
+      sender: userName?.toUpperCase() || 'USER',
       text: textToSend,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
@@ -460,7 +462,7 @@ export const CouncilSession: React.FC = () => {
           </div>
         ) : (
           messages.map((msg) => {
-            const isUser = msg.sender === 'USER';
+            const isUser = msg.sender === (userName?.toUpperCase() || 'USER');
             return (
               <div 
                 key={msg.id} 

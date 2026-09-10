@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAppStore } from '../store/useAppStore';
 import { AudioWaveform } from '../components/AudioWaveform';
 import { AudioService } from '../services/audioService';
 import { 
@@ -44,6 +45,7 @@ interface JournalMessage {
 }
 
 export const ActiveSession: React.FC = () => {
+  const { userName } = useAppStore();
   const [messages, setMessages] = useState<JournalMessage[]>([]);
   const [currentSpeech, setCurrentSpeech] = useState('');
   const [manualInput, setManualInput] = useState('');
@@ -378,7 +380,7 @@ export const ActiveSession: React.FC = () => {
       
       docText += `\n--- RAW TRANSCRIPT ---\n\n`;
       finalHistory.forEach(msg => {
-        const label = msg.role === 'user' ? 'USER' : 'JOURNAL GUIDE';
+        const label = msg.role === 'user' ? (userName?.toUpperCase() || 'USER') : 'JOURNAL GUIDE';
         docText += `[${msg.timestamp}] ${label}:\n${msg.text}\n\n`;
       });
       const createdDocId = await createAndPopulateDoc(docTitle, docText);

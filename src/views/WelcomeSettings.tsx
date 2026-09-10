@@ -4,9 +4,10 @@ import { loadGapiAndAuthenticate } from '../services/authService';
 import { useNavigate } from 'react-router-dom';
 
 export const WelcomeSettings: React.FC = () => {
-  const { setGeminiApiKey, setGoogleClientId, geminiApiKey, googleClientId, isAuthenticated } = useAppStore();
+  const { setGeminiApiKey, setGoogleClientId, setUserName, geminiApiKey, googleClientId, userName, isAuthenticated } = useAppStore();
   const [geminiKey, setGeminiKey] = useState(geminiApiKey || '');
   const [googleId, setGoogleId] = useState(googleClientId || '');
+  const [firstName, setFirstName] = useState(userName || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ export const WelcomeSettings: React.FC = () => {
     
     setGeminiApiKey(geminiKey);
     setGoogleClientId(googleId);
+    setUserName(firstName);
 
     try {
       const success = await loadGapiAndAuthenticate();
@@ -42,6 +44,18 @@ export const WelcomeSettings: React.FC = () => {
       </p>
 
       <form onSubmit={handleConnect} className="space-y-6">
+        <div className="flex flex-col">
+          <label className="text-xl mb-2 text-lcars-orange">FIRST NAME</label>
+          <input 
+            type="text" 
+            required
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            className="bg-black border-2 border-lcars-orange rounded-full p-4 text-lcars-orange text-lg focus:outline-none focus:border-lcars-yellow"
+            placeholder="e.g. Jean-Luc"
+          />
+        </div>
+
         <div className="flex flex-col">
           <label className="text-xl mb-2 text-lcars-orange">GEMINI API KEY</label>
           <input 
