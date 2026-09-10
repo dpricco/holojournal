@@ -65,7 +65,11 @@ export const ActiveSession: React.FC = () => {
     combinedSystemInstruction: string;
   } | null>(null);
 
-  const audioService = useRef(new AudioService());
+  const audioService = useRef<AudioService | null>(null);
+  if (!audioService.current) {
+    audioService.current = new AudioService();
+  }
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef({ messages, currentSpeech, manualInput });
   const navigate = useNavigate();
@@ -93,7 +97,7 @@ export const ActiveSession: React.FC = () => {
     });
 
     // 3. Web Speech API live stream
-    audioService.current.onTranscriptUpdate = (text) => {
+    audioService.current!.onTranscriptUpdate = (text) => {
       setCurrentSpeech(text);
     };
 
@@ -110,7 +114,10 @@ export const ActiveSession: React.FC = () => {
       }
     }, 3000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      audioService.current?.stopRecording();
+    };
   }, []);
 
   useEffect(() => {
@@ -133,7 +140,7 @@ export const ActiveSession: React.FC = () => {
       }
     } else {
       clearChatSession();
-      audioService.current.clearBackup();
+      audioService.current!.clearBackup();
       setMessages([]);
       setCurrentSpeech('');
       setManualInput('');
@@ -155,7 +162,7 @@ export const ActiveSession: React.FC = () => {
       // Wait 2 seconds to allow the final STT results to flush into state
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      await audioService.current.stopRecording();
+      await audioService.current!.stopRecording();
 
       // Fetch from stateRef to ensure we get late-arriving transcripts
       const rawNote = stateRef.current.currentSpeech.trim();
@@ -193,7 +200,7 @@ export const ActiveSession: React.FC = () => {
       }
     } else {
       setCurrentSpeech('');
-      await audioService.current.startRecording();
+      await audioService.current!.startRecording();
       setIsRecording(true);
     }
   };
@@ -340,7 +347,7 @@ export const ActiveSession: React.FC = () => {
    */
   const handleSynthesizeSession = async () => {
     if (isRecording) {
-      await audioService.current.stopRecording();
+      await audioService.current!.stopRecording();
       setIsRecording(false);
     }
 
@@ -428,9 +435,9 @@ export const ActiveSession: React.FC = () => {
 
   const handleDiscard = async () => {
     if (confirm('PURGE ENTIRE JOURNALING SESSION? ALL BUFFERS AND RECORDINGS WILL BE LOST.')) {
-      if (isRecording) await audioService.current.stopRecording();
+      if (isRecording) await audioService.current!.stopRecording();
       clearChatSession();
-      await audioService.current.clearBackup();
+      await audioService.current!.clearBackup();
       navigate('/');
     }
   };

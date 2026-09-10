@@ -31,7 +31,10 @@ export const CouncilSession: React.FC = () => {
   const [statusMessage, setStatusMessage] = useState('');
   const [showRecoverPrompt, setShowRecoverPrompt] = useState(false);
 
-  const audioService = useRef(new AudioService());
+  const audioService = useRef<AudioService | null>(null);
+  if (!audioService.current) {
+    audioService.current = new AudioService();
+  }
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef({ messages, inputText, selectedPersona });
   const navigate = useNavigate();
@@ -57,7 +60,7 @@ export const CouncilSession: React.FC = () => {
     // 2. Load system docs context
     getLatestSystemDocsContext().then(context => setSystemContext(context));
 
-    audioService.current.onTranscriptUpdate = (text) => {
+    audioService.current!.onTranscriptUpdate = (text) => {
       setInputText(text);
     };
 
@@ -80,7 +83,10 @@ export const CouncilSession: React.FC = () => {
       }));
     }, 3000);
 
-    return () => clearInterval(backupInterval);
+    return () => {
+      clearInterval(backupInterval);
+      audioService.current?.stopRecording();
+    };
   }, []);
 
   useEffect(() => {
@@ -111,10 +117,10 @@ export const CouncilSession: React.FC = () => {
       setIsRecording(false);
       setStatusMessage('FINALIZING AUDIO BUFFER...');
       await new Promise(resolve => setTimeout(resolve, 2000));
-      await audioService.current.stopRecording();
+      await audioService.current!.stopRecording();
       setStatusMessage('');
     } else {
-      await audioService.current.startRecording();
+      await audioService.current!.startRecording();
       setIsRecording(true);
     }
   };
@@ -127,7 +133,7 @@ export const CouncilSession: React.FC = () => {
       setIsRecording(false);
       setStatusMessage('FINALIZING AUDIO BUFFER...');
       await new Promise(resolve => setTimeout(resolve, 2000));
-      await audioService.current.stopRecording();
+      await audioService.current!.stopRecording();
     }
 
     const textToSend = stateRef.current.inputText.trim();
