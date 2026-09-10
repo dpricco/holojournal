@@ -46,18 +46,6 @@ export class AudioService {
   async startRecording() {
     this.audioChunks = [];
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      this.mediaRecorder = new MediaRecorder(stream);
-      
-      this.mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          this.audioChunks.push(event.data);
-          this.backupToIDB(); // Continually backup
-        }
-      };
-      
-      this.mediaRecorder.start(3000); // chunk every 3 seconds
-      
       if (this.recognition) {
         this.recognition.start();
       }
@@ -71,22 +59,7 @@ export class AudioService {
       if (this.recognition) {
         this.recognition.stop();
       }
-      
-      if (!this.mediaRecorder || this.mediaRecorder.state === 'inactive') {
-        resolve(null);
-        return;
-      }
-
-      this.mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-        await idb.set('holojournal-audio-backup', audioBlob);
-        resolve(audioBlob);
-        
-        // Stop all tracks
-        this.mediaRecorder?.stream.getTracks().forEach(track => track.stop());
-      };
-
-      this.mediaRecorder.stop();
+      resolve(null);
     });
   }
   
