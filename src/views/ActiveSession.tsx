@@ -56,6 +56,7 @@ export const ActiveSession: React.FC = () => {
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [statusMessage, setStatusMessage] = useState('');
+  const [showRecoverPrompt, setShowRecoverPrompt] = useState(false);
 
   // System context docs loaded from Google Drive
   const [sessionContext, setSessionContext] = useState<{
@@ -81,7 +82,13 @@ export const ActiveSession: React.FC = () => {
   }, [messages, currentSpeech, manualInput, isSynthesizing]);
 
   useEffect(() => {
-    // 1. Fetch system context from Google Drive
+    // 1. Check for recoverable interrupted session
+    const saved = loadChatSession();
+    if (saved && !saved.isArchived && (saved.messages.length > 0 || (saved.currentInput && saved.currentInput.trim().length > 0))) {
+      setShowRecoverPrompt(true);
+    }
+
+    // 2. Fetch system context from Google Drive
     setStatusMessage('ACCESSING DRIVE REPOSITORIES...');
     getJournalSessionInitialContext().then(ctx => {
       setSessionContext(ctx);
@@ -116,6 +123,30 @@ export const ActiveSession: React.FC = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isPolishing, isPrompting, isSynthesizing]);
+
+  const handleRecover = (resume: boolean) => {
+    if (resume) {
+      const saved = loadChatSession();
+      if (saved) {
+        setMessages(saved.messages.map((m, idx) => ({
+          id: `rec-${idx}`,
+          role: m.role,
+          text: m.text,
+          timestamp: m.timestamp
+        })));
+        if (saved.currentInput) {
+          setManualInput(saved.currentInput);
+        }
+      }
+    } else {
+      clearChatSession();
+      audioService.current!.clearBackup();
+      setMessages([]);
+      setCurrentSpeech('');
+      setManualInput('');
+    }
+    setShowRecoverPrompt(false);
+  };
 
   /**
    * Toggles audio recording. When stopping, runs Gemini Speech Cleaning
@@ -397,6 +428,31 @@ export const ActiveSession: React.FC = () => {
     }
   };
 
+  if (showRecoverPrompt) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 text-center space-y-6 flex-1 bg-gray-950 border-4 border-lcars-red rounded-3xl max-w-2xl mx-auto my-auto shadow-[0_0_25px_rgba(204,102,102,0.4)]">
+        <h2 className="text-3xl text-lcars-red font-bold tracking-wider">UNSAVED SESSION DETECTED</h2>
+        <p className="text-lcars-peach text-sm max-w-md">
+          A prior interactive journaling chat was recovered in local browser storage. Would you like to resume your exploration or purge the buffer?
+        </p>
+        <div className="flex gap-4">
+          <button 
+            onClick={() => handleRecover(true)} 
+            className="px-8 py-4 bg-lcars-orange text-black rounded-full font-bold text-xl hover:bg-lcars-yellow transition-all"
+          >
+            [RESUME]
+          </button>
+          <button 
+            onClick={() => handleRecover(false)} 
+            className="px-8 py-4 bg-lcars-red text-black rounded-full font-bold text-xl hover:bg-lcars-yellow transition-all"
+          >
+            [DISCARD]
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full space-y-4">
       {/* LCARS Header & Context Badges */}
@@ -466,27 +522,6 @@ export const ActiveSession: React.FC = () => {
                 Tap [SEND VOICE NOTE] to speak your thoughts. Gemini will automatically strip filler words, format your reflections, and offer insightful prompts to explore deeper.
               </p>
             </div>
-            {loadChatSession()?.messages.length ? (
-              <button
-                onClick={() => {
-                  const saved = loadChatSession();
-                  if (saved) {
-                    setMessages(saved.messages.map((m, idx) => ({
-                      id: `rec-${idx}`,
-                      role: m.role,
-                      text: m.text,
-                      timestamp: m.timestamp
-                    })));
-                    if (saved.currentInput) {
-                      setManualInput(saved.currentInput);
-                    }
-                  }
-                }}
-                className="mt-4 px-4 py-2 bg-gray-900 border border-lcars-orange text-lcars-orange hover:bg-gray-800 text-xs rounded-full transition-colors"
-              >
-                RESTORE PREVIOUS SESSION
-              </button>
-            ) : null}
           </div>
         ) : (
           messages.map((msg) => {
