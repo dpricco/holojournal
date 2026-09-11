@@ -20,19 +20,25 @@ export default defineConfig({
         description: 'AI-assisted journaling and counseling PWA',
         theme_color: '#111827',
         background_color: '#111827',
-        display: 'standalone',
+        display: 'fullscreen',
         icons: [
           {
             src: '/holojournal/icon-192.png',
             sizes: '192x192',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'any'
           },
           {
             src: '/holojournal/icon-512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'maskable'
+          },
+          {
+            src: '/holojournal/icon-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any'
           }
         ]
       }

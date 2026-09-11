@@ -17,11 +17,9 @@ export const PERSONA_VOICE_MAP: Record<string, string> = {
 // Voice for the Holojournal daily journaling guide
 const JOURNAL_GUIDE_VOICE = 'Capella';
 
-// Dedicated TTS model (Interactions API, audio-only output)
-const TTS_MODEL = 'gemini-3.1-flash-tts-preview';
-
 // Current models per Google Interactions API Guidelines
 let availableModelsCache: string[] | null = null;
+let bestTtsModelCache: string | null = null;
 
 const getBestAvailableModels = async (ai: GoogleGenAI): Promise<string[]> => {
   if (availableModelsCache) return availableModelsCache;
@@ -30,7 +28,11 @@ const getBestAvailableModels = async (ai: GoogleGenAI): Promise<string[]> => {
     const response = await ai.models.list({ config: { pageSize: 100 } });
     for await (const model of response) {
       if (model.name && model.name.startsWith('models/gemini-')) {
-        models.push(model.name.replace('models/', ''));
+        const shortName = model.name.replace('models/', '');
+        models.push(shortName);
+        if (shortName.includes('tts')) {
+           bestTtsModelCache = shortName; // Grab the first TTS model we see (or sort later)
+        }
       }
     }
     
@@ -59,10 +61,14 @@ const getBestAvailableModels = async (ai: GoogleGenAI): Promise<string[]> => {
     }
 
     availableModelsCache = models.length > 0 ? models : safeFallbacks;
+    if (!bestTtsModelCache) bestTtsModelCache = 'gemini-2.5-flash-preview-tts';
+    
     console.log("Holojournal: Discovered available models:", availableModelsCache);
+    console.log("Holojournal: Discovered TTS model:", bestTtsModelCache);
     return availableModelsCache;
   } catch (err) {
     console.warn("Holojournal: Failed to list models, using hardcoded fallbacks", err);
+    bestTtsModelCache = 'gemini-2.5-flash-preview-tts';
     return ['gemini-2.5-pro', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'];
   }
 };
@@ -269,24 +275,40 @@ export const speakText = async (
 ): Promise<{ audioBase64: string; mimeType: string } | null> => {
   const ai = getClient();
   try {
-    console.log(`Holojournal TTS: Speaking with voice "${voiceName}"...`);
-    const interaction = await (ai.interactions as any).create({
-      model: TTS_MODEL,
-      input: text,
-      response_format: { type: 'audio' },
-      generation_config: {
-        speech_config: [{ voice: voiceName }]
+    const models = await getBestAvailableModels(ai);
+    const candidateModels = bestTtsModelCache ? [bestTtsModelCache, ...models] : models;
+    
+    for (const targetModel of candidateModels.slice(0, 4)) {
+      console.log(`Holojournal TTS: Speaking with voice "${voiceName}" using model ${targetModel}...`);
+      try {
+        const response = await ai.models.generateContent({
+          model: targetModel,
+          config: {
+            responseModalities: ['AUDIO'],
+            speechConfig: {
+               voiceConfig: {
+                  prebuiltVoiceConfig: {
+                     voiceName: voiceName
+                  }
+               }
+            }
+          },
+          contents: [{ role: 'user', parts: [{ text }] }]
+        });
+        
+        const audioPart = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+        if (audioPart && audioPart.inlineData) {
+           return {
+             audioBase64: audioPart.inlineData.data,
+             mimeType: audioPart.inlineData.mimeType || 'audio/pcm;rate=24000'
+           };
+        }
+      } catch (gcErr: any) {
+        console.warn(`generateContent TTS failed with ${targetModel}: ${gcErr.message}`);
       }
-    });
-    const audio = (interaction as any).output_audio;
-    if (audio?.data) {
-      return {
-        audioBase64: audio.data,
-        mimeType: audio.mime_type || 'audio/pcm;rate=24000'
-      };
     }
-    console.warn('TTS returned no audio data');
-    throw new Error('TTS returned no audio data');
+
+    throw new Error('All TTS generation attempts failed or returned no audio data');
   } catch (err: any) {
     console.error(`TTS failed for voice "${voiceName}":`, err);
     throw err;
