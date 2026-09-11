@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { signOut, loadGapiAndAuthenticate } from '../services/authService';
@@ -7,6 +7,7 @@ export const Layout: React.FC = () => {
   const { isAuthenticated, googleClientId, clearCredentials } = useAppStore();
   const navigate = useNavigate();
   const location = useLocation();
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated && googleClientId && location.pathname !== '/settings') {
@@ -16,9 +17,33 @@ export const Layout: React.FC = () => {
     }
   }, [isAuthenticated, googleClientId, location.pathname, navigate]);
 
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
   const handleLogout = () => {
     signOut();
     clearCredentials();
+  };
+
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        if (document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        }
+      }
+    } catch (err: any) {
+      console.warn(`Fullscreen toggle failed: ${err.message}`);
+    }
   };
 
   return (
@@ -36,8 +61,11 @@ export const Layout: React.FC = () => {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Bar */}
-        <div className="h-16 md:h-24 bg-lcars-peach mb-2 flex items-center px-4 md:px-6 rounded-r-full shrink-0">
+        <div className="h-16 md:h-24 bg-lcars-peach mb-2 flex items-center justify-between px-4 md:px-6 rounded-r-full shrink-0">
           <h1 className="text-black text-xl md:text-4xl font-bold tracking-widest truncate">GEMINI HOLOJOURNAL</h1>
+          <button onClick={toggleFullscreen} className="bg-lcars-purple px-3 py-2 rounded-full text-black font-bold text-xs md:text-sm hover:bg-lcars-yellow transition-colors shrink-0 ml-2">
+            {isFullscreen ? 'EXIT FS' : 'FULLSCREEN'}
+          </button>
         </div>
 
         {/* Navigation Bar */}
