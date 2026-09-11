@@ -129,7 +129,6 @@ export const CouncilSession: React.FC = () => {
         setStatusMessage('');
       }
     } else {
-      setInputText('• • •  RECORDING IN PROGRESS (SILENT BACKGROUND MODE)  • • •');
       await audioService.current!.startRecording();
       setIsRecording(true);
     }
@@ -139,14 +138,21 @@ export const CouncilSession: React.FC = () => {
     unlockAudioContext();
     if (isConsulting || !systemContext) return;
 
+    let textToSend = stateRef.current.inputText.trim();
+
     if (isRecording) {
       setIsRecording(false);
-      setStatusMessage('FINALIZING AUDIO BUFFER...');
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      await audioService.current!.stopRecording();
+      setStatusMessage('TRANSCRIBING AND FINALIZING TRANSMISSION...');
+      try {
+        const audioData = await audioService.current!.stopRecording();
+        const transcribed = await cleanSpeechTranscript('', audioData);
+        if (transcribed) {
+          textToSend = textToSend ? textToSend + ' ' + transcribed : transcribed;
+        }
+      } catch (err) {
+        console.error('Failed to transcribe during transmit', err);
+      }
     }
-
-    const textToSend = stateRef.current.inputText.trim();
     if (!textToSend) {
       setStatusMessage('');
       return;
