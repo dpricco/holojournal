@@ -220,6 +220,9 @@ Return ONLY the cleaned transcript text without quotes or preamble.`;
     return (result.text || rawTranscript).trim();
   } catch (err) {
     console.error('Speech cleanup fallback to raw:', err);
+    if (!rawTranscript || rawTranscript.trim().length === 0) {
+      throw new Error('Transcription failed. The AI model could not process the audio.');
+    }
     return rawTranscript.trim();
   }
 };

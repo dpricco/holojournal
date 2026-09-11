@@ -30,7 +30,7 @@ export class AudioService {
         }
       };
 
-      this.mediaRecorder.start();
+      this.mediaRecorder.start(1000); // 1-second timeslice to force chunk emission
     } catch (err) {
       console.error('Failed to start MediaRecorder:', err);
       throw err;
@@ -45,11 +45,19 @@ export class AudioService {
       }
 
       this.mediaRecorder.onstop = () => {
+        if (this.audioChunks.length === 0) {
+          reject(new Error('No audio data captured from microphone.'));
+          return;
+        }
         const audioBlob = new Blob(this.audioChunks, { type: this.mediaRecorder?.mimeType || 'audio/webm' });
         const reader = new FileReader();
         reader.readAsDataURL(audioBlob);
         reader.onloadend = () => {
           const base64data = (reader.result as string).split(',')[1];
+          if (!base64data) {
+             reject(new Error('Failed to encode audio data.'));
+             return;
+          }
           resolve({ base64: base64data, mimeType: audioBlob.type });
         };
 
