@@ -276,10 +276,17 @@ export const speakText = async (
   const ai = getClient();
   try {
     const models = await getBestAvailableModels(ai);
-    const candidateModels = bestTtsModelCache ? [bestTtsModelCache, ...models] : models;
+    const candidateModels = [
+       ...(bestTtsModelCache ? [bestTtsModelCache] : []),
+       'gemini-3.1-flash-tts-preview',
+       'gemini-2.5-flash-preview-tts',
+       ...models.slice(0, 3)
+    ];
     
-    for (const targetModel of candidateModels.slice(0, 4)) {
+    for (const targetModel of candidateModels) {
       console.log(`Holojournal TTS: Speaking with voice "${voiceName}" using model ${targetModel}...`);
+      
+      // 1. Try standard generateContent which is supported by some models
       try {
         const response = await ai.models.generateContent({
           model: targetModel,
@@ -305,6 +312,29 @@ export const speakText = async (
         }
       } catch (gcErr: any) {
         console.warn(`generateContent TTS failed with ${targetModel}: ${gcErr.message}`);
+      }
+
+      // 2. Try interactions API which is required for specific preview TTS models
+      try {
+        if (ai.interactions && typeof (ai.interactions as any).create === 'function') {
+          const interaction = await (ai.interactions as any).create({
+            model: targetModel,
+            input: text,
+            response_format: { type: 'audio' },
+            generation_config: {
+              speech_config: [{ voice: voiceName }]
+            }
+          });
+          const audio = (interaction as any).output_audio;
+          if (audio?.data) {
+            return {
+              audioBase64: audio.data,
+              mimeType: audio.mime_type || 'audio/pcm;rate=24000'
+            };
+          }
+        }
+      } catch (intErr: any) {
+         console.warn(`interactions API TTS failed with ${targetModel}: ${intErr.message}`);
       }
     }
 
