@@ -579,7 +579,7 @@ export const CouncilSession: React.FC = () => {
               isRecording ? 'bg-lcars-red hover:bg-lcars-yellow animate-pulse' : 'bg-lcars-orange hover:bg-lcars-yellow'
             }`}
           >
-            <span>{isRecording ? 'HALT MIC' : 'SPEAK'}</span>
+            <span>{isRecording ? 'STOP & TRANSCRIBE' : 'SPEAK'}</span>
           </button>
 
           <button

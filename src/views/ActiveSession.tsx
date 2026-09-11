@@ -651,7 +651,7 @@ export const ActiveSession: React.FC = () => {
             }`}
           >
             {isRecording ? <MicOff size={18} /> : <Mic size={18} />}
-            <span>{isRecording ? 'HALT VOICE NOTE' : 'SEND VOICE NOTE'}</span>
+            <span>{isRecording ? 'STOP & TRANSCRIBE' : 'SEND VOICE NOTE'}</span>
           </button>
 
           {/* New [ PROMPT ] Button */}
