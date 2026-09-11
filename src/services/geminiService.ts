@@ -218,10 +218,10 @@ Return ONLY the cleaned transcript text without quotes or preamble.`;
   try {
     const result = await callGemini({ prompt, audio: audioData });
     return (result.text || rawTranscript).trim();
-  } catch (err) {
+  } catch (err: any) {
     console.error('Speech cleanup fallback to raw:', err);
     if (!rawTranscript || rawTranscript.trim().length === 0) {
-      throw new Error('Transcription failed. The AI model could not process the audio.');
+      throw new Error(`Transcription failed: ${err?.message || 'The AI model could not process the audio.'}`);
     }
     return rawTranscript.trim();
   }

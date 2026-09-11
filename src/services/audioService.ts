@@ -21,7 +21,18 @@ export class AudioService {
       }
 
       this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      this.mediaRecorder = new MediaRecorder(this.stream);
+      
+      const mimeTypes = ['audio/webm', 'audio/webm;codecs=opus', 'audio/mp4', 'audio/ogg'];
+      let selectedMimeType = '';
+      for (const mt of mimeTypes) {
+        if (MediaRecorder.isTypeSupported(mt)) {
+          selectedMimeType = mt;
+          break;
+        }
+      }
+
+      const options = selectedMimeType ? { mimeType: selectedMimeType } : undefined;
+      this.mediaRecorder = new MediaRecorder(this.stream, options);
       this.audioChunks = [];
 
       this.mediaRecorder.ondataavailable = (event) => {

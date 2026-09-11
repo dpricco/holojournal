@@ -122,9 +122,9 @@ export const CouncilSession: React.FC = () => {
         if (transcribed) {
           setInputText(prev => (prev ? prev + ' ' + transcribed : transcribed));
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to process audio:', err);
-        alert('Failed to transcribe audio recording.');
+        alert(`Failed to transcribe audio recording. Error: ${err.message}`);
       } finally {
         setStatusMessage('');
       }

@@ -176,9 +176,9 @@ export const ActiveSession: React.FC = () => {
           };
           setMessages(prev => [...prev, newMsg]);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to process audio:', err);
-        alert('Failed to process audio recording.');
+        alert(`Failed to transcribe audio recording. Error: ${err.message}`);
       } finally {
         setIsPolishing(false);
         setStatusMessage('');
