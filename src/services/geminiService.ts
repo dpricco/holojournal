@@ -21,22 +21,51 @@ const JOURNAL_GUIDE_VOICE = 'Capella';
 const TTS_MODEL = 'gemini-3.1-flash-tts-preview';
 
 // Current models per Google Interactions API Guidelines
-const INTERACTION_MODELS = [
-  'gemini-3.7-flash',
-  'gemini-3.1-pro-preview',
-  'gemini-3.5-flash-lite',
-  'gemini-3.1-flash-lite',
-  'gemini-3-pro-preview',
-  'gemini-3-flash-preview',
-];
+let availableModelsCache: string[] | null = null;
 
-const LEGACY_GENERATE_CONTENT_MODELS = [
-  'gemini-2.5-pro',
-  'gemini-2.5-flash',
-  'gemini-2.0-flash',
-  'gemini-1.5-pro',
-  'gemini-1.5-flash',
-];
+const getBestAvailableModels = async (ai: GoogleGenAI): Promise<string[]> => {
+  if (availableModelsCache) return availableModelsCache;
+  try {
+    const models: string[] = [];
+    const response = await ai.models.list({ config: { pageSize: 100 } });
+    for await (const model of response) {
+      if (model.name && model.name.startsWith('models/gemini-')) {
+        models.push(model.name.replace('models/', ''));
+      }
+    }
+    
+    // Sort models by heuristic: major desc, minor desc, pro > flash > thinking
+    models.sort((a, b) => {
+      const matchA = a.match(/gemini-(\d+)\.(\d+)-(pro|flash|thinking)/);
+      const matchB = b.match(/gemini-(\d+)\.(\d+)-(pro|flash|thinking)/);
+      if (!matchA || !matchB) return 0;
+      
+      const majorA = parseInt(matchA[1], 10);
+      const majorB = parseInt(matchB[1], 10);
+      if (majorA !== majorB) return majorB - majorA;
+      
+      const minorA = parseInt(matchA[2], 10);
+      const minorB = parseInt(matchB[2], 10);
+      if (minorA !== minorB) return minorB - minorA;
+      
+      const tierScore = (tier: string) => tier === 'pro' ? 3 : tier === 'flash' ? 2 : 1;
+      return tierScore(matchB[3]) - tierScore(matchA[3]);
+    });
+
+    // Ensure we have some safe fallbacks at the absolute bottom just in case sorting fails
+    const safeFallbacks = ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'];
+    for (const fb of safeFallbacks) {
+      if (!models.includes(fb)) models.push(fb);
+    }
+
+    availableModelsCache = models.length > 0 ? models : safeFallbacks;
+    console.log("Holojournal: Discovered available models:", availableModelsCache);
+    return availableModelsCache;
+  } catch (err) {
+    console.warn("Holojournal: Failed to list models, using hardcoded fallbacks", err);
+    return ['gemini-2.5-pro', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'];
+  }
+};
 
 const getClient = () => {
   const apiKey = useAppStore.getState().geminiApiKey;
@@ -73,7 +102,8 @@ export const callGemini = async (options: UnifiedGenOptions): Promise<UnifiedGen
   // 1. Try modern Interactions API first for Gemini 3.x models
   // Skip if we are sending multimodal audio, since the old generateContent handles inlineData better right now.
   if (!options.audio && ai.interactions && typeof ai.interactions.create === 'function') {
-    for (const model of INTERACTION_MODELS) {
+    const bestModels = await getBestAvailableModels(ai);
+    for (const model of bestModels) {
       try {
         console.log(`Holojournal: Invoking Interactions API [${model}]...`);
         let fullInput = options.prompt;
@@ -118,7 +148,8 @@ export const callGemini = async (options: UnifiedGenOptions): Promise<UnifiedGen
   }
 
   // 2. Fallback to models.generateContent
-  for (const model of LEGACY_GENERATE_CONTENT_MODELS) {
+  const fallbackModels = await getBestAvailableModels(ai);
+  for (const model of fallbackModels) {
     try {
       console.log(`Holojournal: Falling back to generateContent with [${model}]...`);
       const config: any = {};
