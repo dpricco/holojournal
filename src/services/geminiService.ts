@@ -299,7 +299,7 @@ export const speakText = async (
         const audioPart = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
         if (audioPart && audioPart.inlineData) {
            return {
-             audioBase64: audioPart.inlineData.data,
+             audioBase64: audioPart.inlineData.data as string,
              mimeType: (audioPart.inlineData.mimeType as string) || 'audio/pcm;rate=24000'
            };
         }
