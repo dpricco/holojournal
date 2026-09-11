@@ -300,7 +300,7 @@ export const speakText = async (
         if (audioPart && audioPart.inlineData) {
            return {
              audioBase64: audioPart.inlineData.data,
-             mimeType: audioPart.inlineData.mimeType || 'audio/pcm;rate=24000'
+             mimeType: (audioPart.inlineData.mimeType as string) || 'audio/pcm;rate=24000'
            };
         }
       } catch (gcErr: any) {
