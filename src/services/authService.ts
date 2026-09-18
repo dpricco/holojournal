@@ -8,6 +8,7 @@ const DISCOVERY_DOCS = [
 const SCOPES = 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/documents';
 
 let tokenClient: any;
+let authPromise: Promise<boolean> | null = null;
 
 /**
  * Robustly ensures both Google API client (gapi) and Google Identity Services (GIS)
@@ -48,14 +49,11 @@ const ensureGoogleServicesLoaded = (maxRetries = 25, intervalMs = 200): Promise<
       }
 
       if (retries >= maxRetries) {
-        if (!gisReady) {
-          reject(new Error('Google Identity Services script failed to load. Please check your internet connection or disable ad-blockers (such as Brave Shields / uBlock) blocking accounts.google.com and try again.'));
-        } else {
-          reject(new Error('Google API (gapi) script failed to load.'));
-        }
-      } else {
-        setTimeout(check, intervalMs);
+        reject(new Error('Timeout waiting for Google scripts to load'));
+        return;
       }
+
+      setTimeout(check, intervalMs);
     };
 
     check();
@@ -63,57 +61,70 @@ const ensureGoogleServicesLoaded = (maxRetries = 25, intervalMs = 200): Promise<
 };
 
 export const loadGapiAndAuthenticate = async (): Promise<boolean> => {
-  const clientId = useAppStore.getState().googleClientId;
-  
-  if (!clientId) {
-    console.error('No Google Client ID provided');
-    return false;
+  if (authPromise) {
+    return authPromise;
   }
 
-  // Await both scripts to be fully initialized on the window
-  const { gapi: gapiInstance, google: googleInstance } = await ensureGoogleServicesLoaded();
+  authPromise = (async () => {
+    const clientId = useAppStore.getState().googleClientId;
+    
+    if (!clientId) {
+      console.error('No Google Client ID provided');
+      return false;
+    }
 
-  return new Promise((resolve, reject) => {
-    // 1. Load GAPI client
-    gapiInstance.load('client', async () => {
-      try {
-        // 2. Initialize GAPI client with discovery docs (no clientId or scopes here)
-        await gapiInstance.client.init({
-          discoveryDocs: DISCOVERY_DOCS,
-        });
+    // Await both scripts to be fully initialized on the window
+    const { gapi: gapiInstance, google: googleInstance } = await ensureGoogleServicesLoaded();
 
-        // 3. Initialize the token client
-        tokenClient = googleInstance.accounts.oauth2.initTokenClient({
-          client_id: clientId,
-          scope: SCOPES,
-          callback: (tokenResponse: any) => {
-            if (tokenResponse.error !== undefined) {
-              console.error('GIS Token Error detailed object:', tokenResponse);
-              useAppStore.getState().setAuthenticated(false);
-              reject(tokenResponse);
-            } else {
-              console.log('GIS Token Success:', tokenResponse);
-              // The token is automatically set in gapi.client by GIS
-              useAppStore.getState().setAuthenticated(true);
-              resolve(true);
+    return new Promise<boolean>((resolve, reject) => {
+      // 1. Load GAPI client
+      gapiInstance.load('client', async () => {
+        try {
+          // 2. Initialize GAPI client with discovery docs (no clientId or scopes here)
+          await gapiInstance.client.init({
+            discoveryDocs: DISCOVERY_DOCS,
+          });
+
+          // 3. Initialize the token client
+          tokenClient = googleInstance.accounts.oauth2.initTokenClient({
+            client_id: clientId,
+            scope: SCOPES,
+            callback: (tokenResponse: any) => {
+              if (tokenResponse.error !== undefined) {
+                console.error('GIS Token Error detailed object:', tokenResponse);
+                useAppStore.getState().setAuthenticated(false);
+                reject(tokenResponse);
+              } else {
+                console.log('GIS Token Success:', tokenResponse);
+                // The token is automatically set in gapi.client by GIS
+                useAppStore.getState().setAuthenticated(true);
+                resolve(true);
+              }
+            },
+            error_callback: (error: any) => {
+              console.error('GIS initialization/popup error:', error);
+              reject(error);
             }
-          },
-          error_callback: (error: any) => {
-            console.error('GIS initialization/popup error:', error);
-            reject(error);
-          }
-        });
+          });
 
-        // 4. Trigger the auth flow
-        tokenClient.requestAccessToken();
+          // 4. Trigger the auth flow
+          tokenClient.requestAccessToken();
 
-      } catch (error) {
-        console.error('Error initializing GAPI client / GIS:', error);
-        useAppStore.getState().setAuthenticated(false);
-        reject(error);
-      }
+        } catch (error) {
+          console.error('Error initializing GAPI client / GIS:', error);
+          useAppStore.getState().setAuthenticated(false);
+          reject(error);
+        }
+      });
     });
-  });
+  })();
+
+  try {
+    const result = await authPromise;
+    return result;
+  } finally {
+    authPromise = null;
+  }
 };
 
 export const signOut = () => {
