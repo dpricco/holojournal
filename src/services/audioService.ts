@@ -31,7 +31,13 @@ export class AudioService {
         }
       }
 
-      const options = selectedMimeType ? { mimeType: selectedMimeType } : undefined;
+      const options: MediaRecorderOptions = { 
+        audioBitsPerSecond: 16000 
+      };
+      if (selectedMimeType) {
+         options.mimeType = selectedMimeType;
+      }
+      
       this.mediaRecorder = new MediaRecorder(this.stream, options);
       this.audioChunks = [];
 

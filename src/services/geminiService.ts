@@ -89,6 +89,7 @@ interface UnifiedGenOptions {
     base64: string;
     mimeType: string;
   };
+  preferFlash?: boolean;
 }
 
 interface UnifiedGenResult {
@@ -108,7 +109,10 @@ export const callGemini = async (options: UnifiedGenOptions): Promise<UnifiedGen
   // 1. Try modern Interactions API first for Gemini 3.x models
   // Skip if we are sending multimodal audio, since the old generateContent handles inlineData better right now.
   if (!options.audio && ai.interactions && typeof ai.interactions.create === 'function') {
-    const bestModels = await getBestAvailableModels(ai);
+    let bestModels = await getBestAvailableModels(ai);
+    if (options.preferFlash) {
+      bestModels = [...bestModels].sort((a, b) => (b.includes('flash') ? 1 : 0) - (a.includes('flash') ? 1 : 0));
+    }
     for (const model of bestModels) {
       try {
         console.log(`Holojournal: Invoking Interactions API [${model}]...`);
@@ -154,7 +158,10 @@ export const callGemini = async (options: UnifiedGenOptions): Promise<UnifiedGen
   }
 
   // 2. Fallback to models.generateContent
-  const fallbackModels = await getBestAvailableModels(ai);
+  let fallbackModels = await getBestAvailableModels(ai);
+  if (options.preferFlash) {
+    fallbackModels = [...fallbackModels].sort((a, b) => (b.includes('flash') ? 1 : 0) - (a.includes('flash') ? 1 : 0));
+  }
   for (const model of fallbackModels) {
     try {
       console.log(`Holojournal: Falling back to generateContent with [${model}]...`);
@@ -254,7 +261,7 @@ Return ONLY the cleaned transcript text without quotes or preamble.`;
   }
 
   try {
-    const result = await callGemini({ prompt, audio: audioData });
+    const result = await callGemini({ prompt, audio: audioData, preferFlash: true });
     return (result.text || rawTranscript).trim();
   } catch (err: any) {
     console.error('Speech cleanup fallback to raw:', err);
